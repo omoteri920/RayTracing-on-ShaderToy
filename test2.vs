@@ -15,9 +15,7 @@ struct Material {
     float clearcoat;     
     float clearcoatGloss;
 };
-// all the brdf code is from 
-// https://github.com/wdas/brdf/blob/main/src/brdfs/disney.brdf
-// Thanks to Brent Burley and disneyanimation.com
+
 const float PI = 3.14159265358979323846;
 
 float sqr(float x) { return x*x; }
@@ -26,7 +24,7 @@ float SchlickFresnel(float u)
 {
     float m = clamp(1.0-u, 0.0, 1.0);
     float m2 = m*m;
-    return m2*m2*m; // pow(m,5)
+    return m2*m2*m;
 }
 
 float GTR1(float NdotH, float a)
@@ -68,13 +66,13 @@ vec3 mon2lin(vec3 x)
 
 
 vec3 BRDF( vec3 L, vec3 V, vec3 N, vec3 X, vec3 Y, Material m){
-    float NdotL = clamp(L.z, 0.0, 1.0); // dot(N,L);
-    float NdotV = clamp(V.z, 0.0, 1.0); // dot(N,V);
+    float NdotL = clamp(L.z, 0.0, 1.0);
+    float NdotV = clamp(V.z, 0.0, 1.0);
     if (NdotL < 0.0 || NdotV < 0.0) return vec3(0.0, 0.0, 0.0);
 
     vec3 H = normalize(L+V);
-    float NdotH = clamp(H.z, 0.0, 1.0); // dot(N,H);
-    float LdotH = clamp(dot(L, H), 0.0, 1.0); // dot(L,H);
+    float NdotH = clamp(H.z, 0.0, 1.0);
+    float LdotH = clamp(dot(L, H), 0.0, 1.0);
     
     float HdotX = H.x;
     float HdotY = H.y; 
@@ -114,11 +112,9 @@ vec3 BRDF( vec3 L, vec3 V, vec3 N, vec3 X, vec3 Y, Material m){
     // sheen
     vec3 Fsheen = FH * m.sheen * Csheen;
 
-    // clearcoat (ior = 1.5 -> F0 = 0.04)
     float Dr = GTR1(NdotH, mix(.1,.001,m.clearcoatGloss));
     float Fr = mix(.04, 1.0, FH);
     float Gr = smithG_GGX(NdotL, .25) * smithG_GGX(NdotV, .25);
-    //return 1.0/PI * Fd*Cdlin * (1.0-m.metallic);
     
     return ((1.0/PI) * mix(Fd, ss, m.subsurface)*Cdlin + Fsheen)
         * (1.0-m.metallic)
@@ -137,23 +133,18 @@ float random() {
     return fract(sin(seed++)*43758.5453123);
 }
 
-
-
-// a Light is defined by a location and a color
 struct Light {
     vec3 location;
     vec3 color;
     float radius;
 };
 
-// Sphere is defined by a center and radius and material: color
 struct Sphere {
 	float radius;
 	vec3 center;
     vec3 color;
 };
 
-// Ray is define by an origin point and a direction vector
 struct Ray {
     vec3 origin;
     vec3 direction;
@@ -169,7 +160,7 @@ Sphere spheres[NUM_SPHERE];
 Material materials[NUM_SPHERE];
 Light  lights[1];
 
-// Intersection code for Ray-Sphere    
+
 float raySphereIntersect(in Ray ray, in Sphere sphere) {
     
     vec3 rayToSphere = ray.origin - sphere.center;
@@ -190,8 +181,6 @@ float raySphereIntersect(in Ray ray, in Sphere sphere) {
     return MAXX;
 }
 
-// Traverses the entire scene and 
-// returns the objectID and the intersection point
 Intersection intersectAllObjects(Ray ray) {
     float minT = MAXX;
     int iSphere = -1;
@@ -202,7 +191,6 @@ Intersection intersectAllObjects(Ray ray) {
        float t = raySphereIntersect(ray, sphere);
          
        if (t < minT && t >= 0.001) {
-           // keep track of the closest sphere and intersection
            iSphere = i;
            minT = t;
        }
@@ -218,7 +206,6 @@ void makeScene(int f) {
     float x = -0.5;
     float y = -0.2; 
     float z = -3.5;
-    // place 9 spheres in a grid with some separation
     for (int i=0; i<3; i++) {
         for (int j=0; j<3; j++) {
             spheres[count] = Sphere(radius,vec3(x, y, z), vec3(0.0));
@@ -226,7 +213,7 @@ void makeScene(int f) {
             x = x + (radius+0.5);
             count++;
         }
-        x = -0.5;  // reset x for the next row
+        x = -0.5;
         z = z - (radius+0.5);
         y = y + 0.3;
     }
@@ -234,31 +221,28 @@ void makeScene(int f) {
     spheres[9] = Sphere(50.0, vec3(0.0, -10.0, -70.0), vec3(1.0, 0.3, 0.3));
 
     //Light
-    lights[0] = Light(vec3(.5, 1., -.5), vec3(1, 1, 1), 0.2);
+    lights[0] = Light(vec3(.75, 1., 1.), vec3(1, 1, 1), 0.2);
 
-    materials[0].baseColor = vec3(0.81, 0.42, 0.0);
-    materials[0].metallic = 0.2; // .0; 
-    materials[0].subsurface = 0.0;
-    materials[0].specular = 0.0;
-    materials[0].roughness = 0.2;
-    materials[0].specularTint = 0.0;
-    materials[0].anisotropic = 0.0;
-    materials[0].sheen = 0.0;
-    materials[0].sheenTint = 0.0;
-    materials[0].clearcoat = 0.0;
-    materials[0].clearcoatGloss = 0.0;
+    for(int i = 0; i < 9; i++){
+        materials[i].baseColor = vec3(random()*.5, random()*.5, random()*.2);
+        materials[i].metallic = 0.3; 
+        materials[i].subsurface = 0.0;
+        materials[i].specular = 0.2;
+        materials[i].roughness = 0.4;
+        materials[i].specularTint = 0.0;
+        materials[i].anisotropic = 0.0;
+        materials[i].sheen = 0.0;
+        materials[i].sheenTint = 0.0;
+        materials[i].clearcoat = 0.0;
+        materials[i].clearcoatGloss = 0.0;
+    }
     materials[9].baseColor = vec3(0.25, 0.25, 0.25);
-  
 }
 
 // samples per pixel
 const int numSamples=4;
 
-// convert directionToLight and directionToView to tangent space
-//
-void convertToTangentSpace(vec3 toLight, vec3 toView, vec3 hitPoint, out vec3 toLightTS, out vec3 toViewTS, out vec3 nTS)
-{
-    // use a matrix to convert
+void convertToTangentSpace(vec3 toLight, vec3 toView, vec3 hitPoint, out vec3 toLightTS, out vec3 toViewTS, out vec3 nTS) {
     vec3 t = normalize(dFdx(hitPoint));
     vec3 b = normalize(dFdy(hitPoint));
     vec3 n = normalize(cross(t, b));
@@ -278,7 +262,6 @@ float checkLightVisibility(in Light light, vec3 hitPoint, vec3 hitNormal) {
     Intersection intersection = intersectAllObjects(ray);
     int iSphere = intersection.obj;
     if (iSphere == -1) { 
-        // no object was hit, light is visible
         visible = 1.0;
     }
     return visible;
@@ -300,24 +283,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
    for (int i=0; i<1*numSamples; i++) {
        float x = fragCoord.x + random() - 0.5;
        float y = fragCoord.y + random() - 0.5;
-       
-   
-       // map (0.5, w-0.5) to (-1, 1)
-       // and (0.5, h-0.5) to (-1, 1)
+
        x = (x/width)*2.0 - 1.0;
        y = (y/height)*2.0 - 1.0;
        
-       // account for the non-square window
        float aspectRatio = width/height;
        y = y/aspectRatio;
               
-       // normalized ray direction
        vec3 rayDirection = normalize(vec3(x, y, screenDepth));
        
        Ray ray = Ray(rayOrigin, rayDirection);
               
-       // traverse the scene (all spheres) and find the 
-       // closest intersected object and intersection point
        Intersection intersection = intersectAllObjects(ray);
        
        int iSphere = intersection.obj;
@@ -325,9 +301,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
        
        Sphere sphere;
        
-       if (iSphere > -1) { // if there is an intersection
-       
-           // to get around iSphere not being constant
+       if (iSphere > -1) {
            for (int i=0; i<NUM_SPHERE; i++) {
                if (i==iSphere) {
                    sphere = spheres[i];
